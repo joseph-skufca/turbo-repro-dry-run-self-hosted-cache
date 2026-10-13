@@ -1,0 +1,27 @@
+services:
+  cache:
+    image: ducktors/turborepo-remote-cache:2.14.3
+    environment:
+      TURBO_TOKEN: repro-token
+      STORAGE_PROVIDER: local
+
+  # Adds 25ms of network latency to the cache server, like a cache that isn't
+  # on the same machine as the client.
+  latency:
+    image: alpine:3.20
+    network_mode: service:cache
+    cap_add:
+      - NET_ADMIN
+    command: sh -c "apk add --no-cache iproute2 && tc qdisc add dev eth0 root netem delay 25ms && sleep infinity"
+
+  turbo:
+    build:
+      context: .
+      args:
+        TURBO_VERSION: ${TURBO_VERSION:-2.11.8-canary.2}
+    depends_on:
+      - latency
+    environment:
+      TURBO_API: http://cache:3000
+      TURBO_TEAM: repro
+      TURBO_TOKEN: repro-token
